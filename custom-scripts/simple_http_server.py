@@ -33,8 +33,14 @@ class GetCpuLoad(object):
         self.cpustat = '/proc/stat'
         self.cpuinfo = '/proc/cpuinfo'
         self.meminfo = '/proc/meminfo'
+        self.uptime = '/proc/uptime'
         self.sep = ' ' 
         self.sleeptime = sleeptime
+
+    def getuptime(self):
+        with open(self.uptime, 'r') as f:
+            uptime_seconds = float(f.readline().split()[0])
+            return uptime_seconds
 
     def getcputime(self):
         '''
@@ -115,9 +121,9 @@ class GetCpuLoad(object):
         with open(self.meminfo,'r') as f_meminfo:
             content = f_meminfo.readlines()
             memTotal = int(content[0][17:-4])
-            memUsed = int(content[1][16:-4])
+            memFree = int(content[1][16:-4])
 
-            return (memUsed/memTotal)*100            
+            return (memTotal / 1000,(memTotal - memFree) / 1000)           
 
 class MyHandler(BaseHTTPRequestHandler):
 
@@ -139,12 +145,15 @@ class MyHandler(BaseHTTPRequestHandler):
         self.wfile.write(pathVersion.encode())
         pathProc = "<p>{}</p>".format(x.getcpuinfo())
         self.wfile.write(pathProc.encode())
-        pathCpuUptime = "<p>CPU uptime: {}</p>".format(x.getcputime())
+        pathCpuUptime = "<p>CPU uptime: {} seconds</p>".format(x.getuptime())
         self.wfile.write(pathCpuUptime.encode())
         pathCpu = "<p>Your CPU usage: {}</p>".format(x.getcpuload())
         self.wfile.write(pathCpu.encode())
-        pathRAM = "<p>Your RAM usage: {}%</p>".format(x.getramusage())
-        self.wfile.write(pathRAM.encode())
+        memTotal, memUsed = x.getramusage()
+        pathRAMUsed = "<p>RAM used: {}Mb</p>".format(memUsed)
+        self.wfile.write(pathRAMUsed.encode())
+        pathRAMTotal = "<p>RAM total: {}Mb</p>".format(memTotal)
+        self.wfile.write(pathRAMTotal.encode())
         pathDatetime = "<p>Datetime: {}</p>".format(datetime.datetime.now())
         self.wfile.write(pathDatetime.encode())
         pathProcecess = "<p>Procecess:</>"
@@ -152,7 +161,7 @@ class MyHandler(BaseHTTPRequestHandler):
         x.getprocesses()
         self.wfile.write(b"<li>")
         for proc in x.getprocesses():
-            listProcess = "<ul>{} - {}</ul>".format(proc, get_pname(proc))
+            listProcess = "<ul>{} - {}</ul>".format(proc, get_pname(proc)[2:-3])
             self.wfile.write(listProcess.encode())
         self.wfile.write(b"</li>")
         self.wfile.write(b"</body></html>")
